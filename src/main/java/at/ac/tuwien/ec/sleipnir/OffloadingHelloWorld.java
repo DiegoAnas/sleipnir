@@ -15,7 +15,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
-
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -29,6 +28,8 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.jgrapht.Graph;
 import org.jgrapht.traverse.TopologicalOrderIterator;
+import scala.Tuple2;
+import scala.Tuple5;
 
 import at.ac.tuwien.ec.model.infrastructure.MobileCloudInfrastructure;
 import at.ac.tuwien.ec.model.infrastructure.MobileDataDistributionInfrastructure;
@@ -50,20 +51,16 @@ import at.ac.tuwien.ec.provisioning.edge.mo.MOEdgePlanning;
 import at.ac.tuwien.ec.provisioning.mobile.DefaultMobileDevicePlanner;
 import at.ac.tuwien.ec.provisioning.mobile.MobileDevicePlannerWithMobility;
 import at.ac.tuwien.ec.scheduling.Scheduling;
-import at.ac.tuwien.ec.scheduling.algorithms.heftbased.HEFTCostResearch;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduler;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduling;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HEFTBattery;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HEFTResearch;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HeftEchoResearch;
-
 import at.ac.tuwien.ec.sleipnir.utils.ConfigFileParser;
-
-import at.ac.tuwien.ec.scheduling.offloading.algorithms.multiobjective.scheduling.NSGAIIIResearch;
-import at.ac.tuwien.ec.scheduling.offloading.bruteforce.BruteForceRuntimeOffloader;
 import at.ac.tuwien.ec.sleipnir.utils.MontecarloStatisticsPrinter;
-import scala.Tuple2;
-import scala.Tuple5;
+
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.HLFET;
+
 
 public class OffloadingHelloWorld {
 	
@@ -205,9 +202,22 @@ public class OffloadingHelloWorld {
 						ArrayList<Tuple2<OffloadScheduling,Tuple5<Integer,Double,Double,Double,Double>>> output = 
 								new ArrayList<Tuple2<OffloadScheduling,Tuple5<Integer,Double,Double,Double,Double>>>();
 						OffloadScheduler singleSearch;
-						
-						singleSearch = new HEFTResearch(inputValues);
-						
+
+						switch (algoritmName)
+                        {
+                            case "HEFT":
+                                singleSearch = new HEFTResearch(inputValues);
+                                break;
+                            case "HLFET":
+                                singleSearch = new HLFET(inputValues);
+                                break;
+                            default:
+                                singleSearch = new HEFTResearch(inputValues);
+                                break;
+                            // TODO add yours!
+                        }
+
+
 						ArrayList<OffloadScheduling> offloads = (ArrayList<OffloadScheduling>) singleSearch.findScheduling();
 						if(offloads != null)
 							for(OffloadScheduling os : offloads) 
@@ -467,6 +477,13 @@ public class OffloadingHelloWorld {
 				OffloadingSetup.Eta = Double.parseDouble(tmp[1]);
 				continue;
 			}
+
+            if(s.startsWith("-alg="))
+            {
+                String[] tmp = s.split("=");
+                OffloadingSetup.algoName = tmp[1];
+                continue;
+            }
 						
 			if(s.equals("-cloudonly"))
 				OffloadingSetup.cloudOnly = true;
@@ -512,6 +529,8 @@ public class OffloadingHelloWorld {
 				+ "Probability of CHESS app in workflow (must be between 0 and 1).\n"
 				+ "-facebookDistr=#\t"
 				+ "Probability of FACEBOOK app in workflow (must be between 0 and 1).\n"
+                + "-alg=#\t"
+                + "Algorithm for task scheduling ([HEFT,HLFET]).\n"
 				+ "\n"
 				+ "");
 	}
