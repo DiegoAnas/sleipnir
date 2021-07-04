@@ -162,7 +162,6 @@ public class OffloadingHelloWorld {
 			}
 			//We print the fist deployment appearing in the histogram
 		System.out.println(histogram.first());
-		
 		jscontext.close();
 	}
 
@@ -290,8 +289,7 @@ public class OffloadingHelloWorld {
 								Tuple5<Integer, Double, Double, Double, Double> val = arg0._2();
 								/*
 								 * We aggregate similar scheduling according to their average, therefore each value is averaged
-								 * according to the frequency ( val._1() ). Execution time of the algorithm is instead averaged
-								 * by the number of iterations.
+								 * according to the frequency ( val._1() ). 
 								 */
 								Tuple5<Integer, Double, Double, Double, Double> tNew 
 								= new Tuple5<Integer, Double, Double, Double, Double>
@@ -300,7 +298,7 @@ public class OffloadingHelloWorld {
 										val._2()/val._1(),
 										val._3()/val._1(),
 										val._4()/val._1(),
-										(val._5()/OffloadingSetup.iterations)
+										(val._5()/val._1())
 										);
 
 								return new Tuple2<OffloadScheduling,Tuple5<Integer, Double, Double, Double, Double>>(arg0._1,tNew);

@@ -1,6 +1,8 @@
 package at.ac.tuwien.ec.model.infrastructure.computationalnodes;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import at.ac.tuwien.ec.model.Coordinates;
 import at.ac.tuwien.ec.model.Hardware;
@@ -10,7 +12,9 @@ import at.ac.tuwien.ec.model.infrastructure.MobileCloudInfrastructure;
 import at.ac.tuwien.ec.model.infrastructure.energy.CPUEnergyModel;
 import at.ac.tuwien.ec.model.infrastructure.energy.NETEnergyModel;
 import at.ac.tuwien.ec.model.pricing.PricingModel;
+import at.ac.tuwien.ec.model.software.MobileSoftwareComponent;
 import at.ac.tuwien.ec.model.software.SoftwareComponent;
+import at.ac.tuwien.ec.scheduling.utils.RuntimeComparator;
 
 public abstract class ComputationalNode extends NetworkedNode implements Serializable{
 	
@@ -38,13 +42,15 @@ public abstract class ComputationalNode extends NetworkedNode implements Seriali
 	
 	protected CPUEnergyModel cpuEnergyModel;
 	protected PricingModel priceModel;
-	protected double bandwidth, latency;
+	protected double bandwidth, latency, est = 0.0;
+	protected ArrayList<MobileSoftwareComponent> allocated;
 		
 	public ComputationalNode(String id, HardwareCapabilities capabilities)
 	{
 		super(id,capabilities);
 		setPricingModel(new DefaultPriceModel());
 		this.setMaxDistance(-1);
+		this.allocated = new ArrayList<MobileSoftwareComponent>();
 	}
 		
 	private void setPricingModel(DefaultPriceModel pricingModel) {
@@ -75,12 +81,40 @@ public abstract class ComputationalNode extends NetworkedNode implements Seriali
 	
 	public boolean deploy(SoftwareComponent sc)
 	{
+		allocated.add((MobileSoftwareComponent) sc);
 		return capabilities.deploy(sc);
 	}
 	
 	public void undeploy(SoftwareComponent sc) 
 	{
 		capabilities.undeploy(sc);
+		allocated.remove(sc);
+	}
+	
+	public double getESTforTask(MobileSoftwareComponent sc)
+	{
+		double est = 0.0;
+		if(this.isCompatible(sc))
+			return est;
+		else if(allocated.isEmpty())
+			return Double.MAX_VALUE;
+		else
+		{
+			//we check when it will be possible to allocate sc
+			Collections.sort(allocated, new RuntimeComparator());
+			ArrayList<MobileSoftwareComponent> tmpAllocated = (ArrayList<MobileSoftwareComponent>) allocated.clone();
+			HardwareCapabilities futureCapabilities = capabilities.clone();
+			MobileSoftwareComponent firstTask = tmpAllocated.remove(0);
+			while(!futureCapabilities.supports(sc.getHardwareRequirements()) && !tmpAllocated.isEmpty())
+			{
+				futureCapabilities.undeploy(firstTask);
+				est = firstTask.getRunTime();
+				firstTask = tmpAllocated.remove(0);
+			}
+			if(!futureCapabilities.supports(sc.getHardwareRequirements()))
+				return Double.MAX_VALUE;
+			return est;
+		}
 	}
 	
 	public abstract void sampleNode();
@@ -107,6 +141,14 @@ public abstract class ComputationalNode extends NetworkedNode implements Seriali
 
 	public void deployVM(ContainerInstance vm) {
 		capabilities.deploy(vm);
+	}
+
+	public ArrayList<MobileSoftwareComponent> getAllocatedTasks() {
+		return allocated;
+	}
+
+	public void setAllocatedTasks(ArrayList<MobileSoftwareComponent> allocated) {
+		this.allocated = allocated;
 	}
 	
 }
