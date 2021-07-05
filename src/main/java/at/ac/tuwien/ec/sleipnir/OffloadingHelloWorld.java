@@ -1,11 +1,9 @@
 package at.ac.tuwien.ec.sleipnir;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -13,53 +11,38 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
-import java.util.List;
-import java.util.function.Function;
-import org.apache.commons.lang.math.RandomUtils;
+
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.DeviceOnly;
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.EdgeOnly;
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.HLFET;
+import at.ac.tuwien.ec.sleipnir.utils.FrequencyComparator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
-import org.jgrapht.Graph;
-import org.jgrapht.traverse.TopologicalOrderIterator;
 import scala.Tuple2;
 import scala.Tuple5;
 
 import at.ac.tuwien.ec.model.infrastructure.MobileCloudInfrastructure;
-import at.ac.tuwien.ec.model.infrastructure.MobileDataDistributionInfrastructure;
-import at.ac.tuwien.ec.model.software.ComponentLink;
 import at.ac.tuwien.ec.model.software.MobileApplication;
-import at.ac.tuwien.ec.model.software.MobileSoftwareComponent;
 import at.ac.tuwien.ec.model.software.MobileWorkload;
-import at.ac.tuwien.ec.model.software.mobileapps.AntivirusApp;
-import at.ac.tuwien.ec.model.software.mobileapps.ChessApp;
-import at.ac.tuwien.ec.model.software.mobileapps.FacebookApp;
-import at.ac.tuwien.ec.model.software.mobileapps.FacerecognizerApp;
-import at.ac.tuwien.ec.model.software.mobileapps.NavigatorApp;
 import at.ac.tuwien.ec.model.software.mobileapps.WorkloadGenerator;
 import at.ac.tuwien.ec.provisioning.DefaultCloudPlanner;
 import at.ac.tuwien.ec.provisioning.DefaultNetworkPlanner;
 import at.ac.tuwien.ec.provisioning.edge.EdgeAllCellPlanner;
-import at.ac.tuwien.ec.provisioning.edge.RandomEdgePlanner;
-import at.ac.tuwien.ec.provisioning.edge.mo.MOEdgePlanning;
 import at.ac.tuwien.ec.provisioning.mobile.DefaultMobileDevicePlanner;
 import at.ac.tuwien.ec.provisioning.mobile.MobileDevicePlannerWithMobility;
-import at.ac.tuwien.ec.scheduling.Scheduling;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduler;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduling;
-import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HEFTBattery;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HEFTResearch;
-import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.HeftEchoResearch;
 import at.ac.tuwien.ec.sleipnir.utils.ConfigFileParser;
 import at.ac.tuwien.ec.sleipnir.utils.MontecarloStatisticsPrinter;
 
-import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.HLFET;
 
 
 public class OffloadingHelloWorld {
@@ -86,29 +69,7 @@ public class OffloadingHelloWorld {
 		processArgs(arg);
 		Logger.getLogger("org").setLevel(Level.OFF);
 		Logger.getLogger("akka").setLevel(Level.OFF);
-		
-		/* Class used to compare deployments according to frequency, i.e., the number of times they appear in the histogram
-		 * 
-		 */
-		class FrequencyComparator implements Serializable,
-			Comparator<Tuple2<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>>>
-		{
 
-			
-			private static final long serialVersionUID = -2034500309733677393L;
-
-			public int compare(Tuple2<OffloadScheduling, Tuple5<Integer, Double, Double,Double, Double>> o1,
-					Tuple2<OffloadScheduling, Tuple5<Integer, Double, Double,Double, Double>> o2) {
-				/*
-				 *  Deployments are characterized by a Tuple2, whose values are a OffloadScheduling and a Tuple5
-				 *  containing all its execution parameters (frequency, runtime, cost, battery lifetime, execution time);
-				 *  since we are interested in the frequency, we select the Tuple5 ( o1._2() ) 
-				 *  and we pick its first value ( _1() )
-				 */
-				return o1._2()._1() - o2._2()._1();
-			}
-			
-		}
 		
 		DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd-HH_mm_ss");
 		Date date = new Date();		
@@ -125,45 +86,51 @@ public class OffloadingHelloWorld {
 		//this method is used to define the output file name
 		String filename = setupOutputFileName(dateFormat, date, OffloadingSetup.algoName);
 		File outFile = new File(filename);
-		PrintWriter writer;
-		
+
 		JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram = runSparkSimulation(
 				jscontext, inputSamples, OffloadingSetup.algoName);
-			if(!outFile.exists())
-			{
-				outFile.getParentFile().mkdirs();
-				try 
-				{
-					outFile.createNewFile();
-					writer  = new PrintWriter(outFile,"UTF-8");
-					writer.println(MontecarloStatisticsPrinter.getHeader());
-					writer.println("Algorithm: " + OffloadingSetup.algoName);
-					//By default, we select the deployment with the highest frequency
-					Tuple2<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> mostFrequent = histogram.max(new FrequencyComparator());
-					/* By default, schedulings are saved in the file as a single string, where each value is separated by \t.
-					 * values are:
-					 * 1) the description of the scheduling, with t -> n indicating that task t has been scheduled to node n;
-					 * 2) the frequency of the deployment, meaning the number of times where the deployment occurs in the histrogram;
-					 * 3) the deployment runtime
-					 * 4) the user cost of the deployment
-					 * 5) the battery lifetime of the deployment
-					 * 6) the execution time of the algorithm
-					 */
-					writer.println(mostFrequent._1().toString() + "\t" + mostFrequent._2()._1() + "\t" + mostFrequent._2()._2() 
-						+ "\t" + mostFrequent._2()._3() + "\t" + mostFrequent._2()._4() + "\t" + mostFrequent._2()._5() );
-					writer.flush();	
-					writer.close();
-				} 
-				catch (IOException e) 
-				{
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			//We print the fist deployment appearing in the histogram
+
+		generateOutFile(outFile, histogram);
+
+		//We print the fist deployment appearing in the histogram
 		System.out.println(histogram.first());
 		jscontext.close();
 	}
+
+	private static void generateOutFile(File outFile, JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram){
+        if(!outFile.exists())
+        {
+            PrintWriter writer;
+            outFile.getParentFile().mkdirs();
+            try
+            {
+                outFile.createNewFile();
+                writer  = new PrintWriter(outFile,"UTF-8");
+                writer.println(MontecarloStatisticsPrinter.getHeader());
+                writer.println("Algorithm: " + OffloadingSetup.algoName);
+                //By default, we select the deployment with the highest frequency
+                Tuple2<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> mostFrequent = histogram.max(new FrequencyComparator());
+                /* By default, schedulings are saved in the file as a single string, where each value is separated by \t.
+                 * values are:
+                 * 1) the description of the scheduling, with t -> n indicating that task t has been scheduled to node n;
+                 * 2) the frequency of the deployment, meaning the number of times where the deployment occurs in the histrogram;
+                 * 3) the deployment runtime
+                 * 4) the user cost of the deployment
+                 * 5) the battery lifetime of the deployment
+                 * 6) the execution time of the algorithm
+                 */
+                writer.println(mostFrequent._1().toString() + "\t" + mostFrequent._2()._1() + "\t" + mostFrequent._2()._2()
+                        + "\t" + mostFrequent._2()._3() + "\t" + mostFrequent._2()._4() + "\t" + mostFrequent._2()._5() );
+                writer.flush();
+                writer.close();
+            }
+            catch (IOException e)
+            {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
 
 	private static String setupOutputFileName(DateFormat dateFormat, Date date, String algoName) {
 		return OffloadingSetup.outfile
@@ -210,11 +177,18 @@ public class OffloadingHelloWorld {
                             case "HLFET":
                                 singleSearch = new HLFET(inputValues);
                                 break;
+                            case "DEVICE":
+                                singleSearch = new DeviceOnly(inputValues);
+                                break;
+                            //case "EDGE":
+                            //    singleSearch = new EdgeOnly(inputValues);
                             default:
                                 singleSearch = new HEFTResearch(inputValues);
                                 break;
                             // TODO add yours!
                         }
+
+                        //ToDo: do comparisons here between algoritms so randomly generated workload can be shared among them
 
 
 						ArrayList<OffloadScheduling> offloads = (ArrayList<OffloadScheduling>) singleSearch.findScheduling();
@@ -243,9 +217,7 @@ public class OffloadingHelloWorld {
 						return output.iterator();
 					}
 		});
-		
-		//System.out.println(results.first());
-		
+
 		JavaPairRDD<OffloadScheduling,Tuple5<Integer,Double,Double,Double,Double>> aggregation = 
 				results.reduceByKey(
 				new Function2<Tuple5<Integer,Double,Double,Double,Double>,
@@ -485,6 +457,9 @@ public class OffloadingHelloWorld {
 						
 			if(s.equals("-cloudonly"))
 				OffloadingSetup.cloudOnly = true;
+
+            if(s.equals("-edgeonly"))
+                OffloadingSetup.edgeOnly = true;
 		}
 	}
 
@@ -501,6 +476,8 @@ public class OffloadingHelloWorld {
 				+ "Each workflows has n applications\n"
 				+ "-cloudonly\t"
 				+ "Simulation uses only Cloud nodes\n"
+                + "-edgeonly\t"
+                + "Simulation uses only Edge nodes\n"
 				+ "-area=name\t"
 				+ "Urban area where the offloading is performed (possible choices: HERNALS, LEOPOLDSTADT, SIMMERING)\n"
 				+ "-eta=n\t"

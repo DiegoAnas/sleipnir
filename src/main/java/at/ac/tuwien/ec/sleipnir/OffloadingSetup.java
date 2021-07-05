@@ -81,6 +81,7 @@ public class OffloadingSetup {
 	public static String outfile = "../output/";
 	public static int edgeNodes;
 	public static boolean cloudOnly;
+    public static boolean edgeOnly;
 	public static int numberOfApps = 5;
 	public static int numberOfParallelApps = 1;
 	public static NETEnergyModel edgeNETEnergyModel = new ComputationalNodeNetEnergyModel();
