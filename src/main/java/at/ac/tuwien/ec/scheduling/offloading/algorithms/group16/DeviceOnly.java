@@ -60,19 +60,22 @@ public class DeviceOnly extends OffloadScheduler {
 		//We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
 		OffloadScheduling scheduling = new OffloadScheduling(); 
 		//We check until there are nodes available for scheduling
-		for (MobileSoftwareComponent currTask : tasks)
-		{
+        boolean warned = false;
+		for (MobileSoftwareComponent currTask : tasks){
 			ComputationalNode target = null;
             MobileDevice userDevice = (MobileDevice) currentInfrastructure.getNodeById(currTask.getUserId());
             // deploy it in the mobile device (if enough resources are available)
-            //   Since capabilities and connectivity shouldn't be an issue, check only if energy budget allows it.
+            // Since capabilities and connectivity shouldn't be an issue, check only if energy budget allows it.
             double consumption = userDevice.getCPUEnergyModel().computeCPUEnergy(currTask, userDevice, currentInfrastructure);
-            if (consumption >= userDevice.getEnergyBudget())
-                System.out.print("Mobile energy budget does not allow execution on device");
-            else
+            if (consumption >= userDevice.getEnergyBudget()) {
+                if (!warned) { // show the energy message only once
+                    System.out.print("Mobile energy budget does not allow execution on device");
+                    warned = true;
+                }
+            }else{
                 target = userDevice;
-            if(target != null)
-			{
+            }
+            if(target != null){
 				deploy(scheduling,currTask,target);
 			}
 			/*
