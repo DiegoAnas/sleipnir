@@ -3,6 +3,7 @@ package at.ac.tuwien.ec.scheduling.offloading.algorithms.group16;
 
 import at.ac.tuwien.ec.model.infrastructure.MobileCloudInfrastructure;
 import at.ac.tuwien.ec.model.infrastructure.computationalnodes.ComputationalNode;
+import at.ac.tuwien.ec.model.infrastructure.computationalnodes.MobileDevice;
 import at.ac.tuwien.ec.model.software.ComponentLink;
 import at.ac.tuwien.ec.model.software.MobileApplication;
 import at.ac.tuwien.ec.model.software.MobileSoftwareComponent;
@@ -52,8 +53,6 @@ public class DeviceOnly extends OffloadScheduler {
 		/*scheduledNodes contains the nodes that have been scheduled for execution.
 		 * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
 		 */
-		PriorityQueue<MobileSoftwareComponent> scheduledNodes
-		= new PriorityQueue<MobileSoftwareComponent>(new RuntimeComparator());
 		ArrayList<MobileSoftwareComponent> tasks = new ArrayList<>();
 		tasks.addAll(currentApp.getTaskDependencies().vertexSet());
 		ArrayList<OffloadScheduling> deployments = new ArrayList<OffloadScheduling>();
@@ -64,13 +63,17 @@ public class DeviceOnly extends OffloadScheduler {
 		for (MobileSoftwareComponent currTask : tasks)
 		{
 			ComputationalNode target = null;
+            MobileDevice userDevice = (MobileDevice) currentInfrastructure.getNodeById(currTask.getUserId());
             // deploy it in the mobile device (if enough resources are available)
-            if(isValid(scheduling,currTask,(ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId())))
-                target = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
-			if(target != null) // what happens when mobile device is not valid?! many tasks won't get deployed
+            //   Since capabilities and connectivity shouldn't be an issue, check only if energy budget allows it.
+            double consumption = userDevice.getCPUEnergyModel().computeCPUEnergy(currTask, userDevice, currentInfrastructure);
+            if (consumption >= userDevice.getEnergyBudget())
+                System.out.print("Mobile energy budget does not allow execution on device");
+            else
+                target = userDevice;
+            if(target != null)
 			{
 				deploy(scheduling,currTask,target);
-				scheduledNodes.add(currTask);
 			}
 			/*
 			 * if simulation considers mobility, perform post-scheduling operations
