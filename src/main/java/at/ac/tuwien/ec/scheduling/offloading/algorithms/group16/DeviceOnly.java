@@ -100,10 +100,10 @@ public class DeviceOnly extends OffloadScheduler {
      */
     private void setRank(MobileApplication currentApp, MobileCloudInfrastructure currentInfrastructure) {
         TopologicalOrderIterator topoIterator = new TopologicalOrderIterator(currentApp.getTaskDependencies());
-        double order = 0;
+        double order = currentApp.getTaskDependencies().vertexSet().size();
         while (topoIterator.hasNext()){
             ((MobileSoftwareComponent) topoIterator.next()).setRank(order);
-            order +=1;
+            order -=1;
         }
     }
 }
