@@ -55,6 +55,7 @@ public class DeviceOnly extends OffloadScheduler {
 		 * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
 		 */
         PriorityQueue<MobileSoftwareComponent> tasks = new PriorityQueue<MobileSoftwareComponent>(new NodeRankComparator());
+        tasks.addAll(currentApp.getTaskDependencies().vertexSet());
         ArrayList<OffloadScheduling> deployments = new ArrayList<>();
 		//We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
 		OffloadScheduling scheduling = new OffloadScheduling();
