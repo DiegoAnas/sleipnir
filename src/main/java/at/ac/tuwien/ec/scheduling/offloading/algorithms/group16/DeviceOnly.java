@@ -8,11 +8,14 @@ import at.ac.tuwien.ec.model.software.MobileApplication;
 import at.ac.tuwien.ec.model.software.MobileSoftwareComponent;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduler;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduling;
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.utils.NodeRankComparator;
 import at.ac.tuwien.ec.sleipnir.OffloadingSetup;
+import org.jgrapht.traverse.TopologicalOrderIterator;
 import scala.Tuple2;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.PriorityQueue;
 
 /**
  * Dummy Scheduler that runs all nodes in the mobile device
@@ -30,13 +33,15 @@ public class DeviceOnly extends OffloadScheduler {
 		super();
 		setMobileApplication(A);
 		setInfrastructure(I);
+        setRank(this.currentApp,this.currentInfrastructure);
 	}
 
-	public DeviceOnly(Tuple2<MobileApplication,MobileCloudInfrastructure> t) {
+    public DeviceOnly(Tuple2<MobileApplication,MobileCloudInfrastructure> t) {
 		super();
 		setMobileApplication(t._1());
 		setInfrastructure(t._2());
-	}
+        setRank(this.currentApp,this.currentInfrastructure);
+    }
 
     /**
      * Processor selection phase:
@@ -49,8 +54,8 @@ public class DeviceOnly extends OffloadScheduler {
 		/*scheduledNodes contains the nodes that have been scheduled for execution.
 		 * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
 		 */
-		ArrayList<MobileSoftwareComponent> tasks = new ArrayList<>(currentApp.getTaskDependencies().vertexSet());
-		ArrayList<OffloadScheduling> deployments = new ArrayList<>();
+        PriorityQueue<MobileSoftwareComponent> tasks = new PriorityQueue<MobileSoftwareComponent>(new NodeRankComparator());
+        ArrayList<OffloadScheduling> deployments = new ArrayList<>();
 		//We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
 		OffloadScheduling scheduling = new OffloadScheduling();
 		//We check until there are nodes available for scheduling
@@ -85,5 +90,18 @@ public class DeviceOnly extends OffloadScheduler {
 		deployments.add(scheduling);
 		return deployments;
 	}
-	
+
+    /**
+     * Set task nodes rank according to their topological order
+     * @param currentApp
+     * @param currentInfrastructure
+     */
+    private void setRank(MobileApplication currentApp, MobileCloudInfrastructure currentInfrastructure) {
+        TopologicalOrderIterator topoIterator = new TopologicalOrderIterator(currentApp.getTaskDependencies());
+        double order = 0;
+        while (topoIterator.hasNext()){
+            ((MobileSoftwareComponent) topoIterator.next()).setRank(order);
+            order +=1;
+        }
+    }
 }
