@@ -56,73 +56,80 @@ public class HLFET extends OffloadScheduler {
      * which minimizes task's finish time
      * @return
      */
-	@Override
-	public ArrayList<? extends OffloadScheduling> findScheduling() {
-		double start = System.nanoTime();
-		/*scheduledNodes contains the nodes that have been scheduled for execution.
-		 * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
-		 */
-		PriorityQueue<MobileSoftwareComponent> scheduledNodes 
-		= new PriorityQueue<MobileSoftwareComponent>(new RuntimeComparator());
-		/*
-		 * tasks contains tasks that have to be scheduled for execution.
-		 * Tasks are selected according to their staticBLevel (at least in HEFT)
-		 */
-		PriorityQueue<MobileSoftwareComponent> tasks = new PriorityQueue<MobileSoftwareComponent>(new NodeRankComparator());
-		//To start, we add all nodes in the workflow
-		tasks.addAll(currentApp.getTaskDependencies().vertexSet());
-		ArrayList<OffloadScheduling> deployments = new ArrayList<OffloadScheduling>();
-				
-		MobileSoftwareComponent currTask;
-		//We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
-		OffloadScheduling scheduling = new OffloadScheduling(); 
-		//We check until there are nodes available for scheduling
-		while((currTask = tasks.poll())!=null)
-		{
-			//If there are nodes to be scheduled, we check the first task who terminates and free its resources
-			if(!scheduledNodes.isEmpty())
-			{
-				MobileSoftwareComponent firstTaskToTerminate = scheduledNodes.remove();
-				((ComputationalNode) scheduling.get(firstTaskToTerminate)).undeploy(firstTaskToTerminate);
-			}
-			double tMin = Double.MAX_VALUE; //Minimum execution time for next task
-			ComputationalNode target = null;
-			if(!currTask.isOffloadable())
-			{
-			    // If task is not offloadable, deploy it in the mobile device (if enough resources are available)
+    @Override
+    public ArrayList<? extends OffloadScheduling> findScheduling() {
+        double start = System.nanoTime();
+        /*scheduledNodes contains the nodes that have been scheduled for execution.
+         * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
+         */
+        PriorityQueue<MobileSoftwareComponent> scheduledNodes
+                = new PriorityQueue<MobileSoftwareComponent>(new RuntimeComparator());
+        /*
+         * tasks contains tasks that have to be scheduled for execution.
+         * Tasks are selected according to their static b-level (for HLFET)
+         */
+        PriorityQueue<MobileSoftwareComponent> tasks = new PriorityQueue<MobileSoftwareComponent>(new NodeRankComparator());
+        //To start, we add all nodes in the workflow
+        tasks.addAll(currentApp.getTaskDependencies().vertexSet());
+        ArrayList<OffloadScheduling> deployments = new ArrayList<OffloadScheduling>();
+
+        MobileSoftwareComponent currTask;
+        //We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
+        OffloadScheduling scheduling = new OffloadScheduling();
+        //We check until there are nodes available for scheduling
+        while((currTask = tasks.peek()) != null)
+        {
+            double tMin = Double.MAX_VALUE; //Minimum execution time for next task
+            ComputationalNode target = null;
+
+            if(!currTask.isOffloadable()) {
+                // If task is not offloadable, deploy it in the mobile device (if enough resources are available)
                 if(isValid(scheduling,currTask,(ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId())))
-                	target = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId()); 
-				
-			}
-			else
-			{
-				for(ComputationalNode cn : currentInfrastructure.getAllNodes())
-					if(currTask.getRuntimeOnNode(cn, currentInfrastructure) < tMin &&
-							isValid(scheduling,currTask,cn))
-					{
-						tMin = currTask.getRuntimeOnNode(cn, currentInfrastructure); // Earliest Finish Time  EFT = wij + EST
-						target = cn;
-					}
-				
-			}
-			//if scheduling found a target node for the task, it allocates it to the target node
-			if(target != null)
-			{
-				deploy(scheduling,currTask,target);
-				scheduledNodes.add(currTask);
-			}
-			/*
-			 * if simulation considers mobility, perform post-scheduling operations
-			 * (default is to update coordinates of mobile devices)
-			 */
-			if(OffloadingSetup.mobility)
-				postTaskScheduling(scheduling);					
-		}
-		double end = System.nanoTime();
-		scheduling.setExecutionTime(end-start);
-		deployments.add(scheduling);
-		return deployments;
-	}
+                    target = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
+
+            } else {
+                //Check for all available Cloud/Edge nodes
+                for(ComputationalNode cn : currentInfrastructure.getAllNodes())
+                    if(cn.getESTforTask(currTask) + currTask.getRuntimeOnNode(cn, currentInfrastructure) < tMin &&
+                            isValid(scheduling,currTask,cn))
+                    {
+                        tMin = cn.getESTforTask(currTask) + currTask.getRuntimeOnNode(cn, currentInfrastructure); // Earliest Finish Time  EFT = wij + EST
+                        target = cn;
+
+                    }
+                // Check mobile Device because methoddAllNodes does not return all nodes ( user mobile device NODES not included :)
+                ComputationalNode localDevice = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
+                if(localDevice.getESTforTask(currTask) + currTask.getRuntimeOnNode(localDevice, currentInfrastructure) < tMin &&
+                        hasEnoughBattery(scheduling,currTask,localDevice)){
+                    // Check only battery value, since EST already accounts for lack of resources in the node due to concurrency and the rest of the checks (connectitvity, hardware) are always satisfied
+                    target = localDevice;
+                }
+
+            }
+            //if scheduling found a target node for the task, it allocates it to the target node
+            if(target != null)
+            {
+                deploy(scheduling,currTask,target);
+                scheduledNodes.add(currTask);
+                tasks.remove(currTask);
+            }
+            else if(!scheduledNodes.isEmpty())
+            {
+                MobileSoftwareComponent terminated = scheduledNodes.remove();
+                ((ComputationalNode) scheduling.get(terminated)).undeploy(terminated);
+            }
+            /*
+             * if simulation considers mobility, perform post-scheduling operations
+             * (default is to update coordinates of mobile devices)
+             */
+            if(OffloadingSetup.mobility)
+                postTaskScheduling(scheduling);
+        }
+        double end = System.nanoTime();
+        scheduling.setExecutionTime(end-start);
+        deployments.add(scheduling);
+        return deployments;
+    }
 
 	protected void setBLevel(MobileApplication A, MobileCloudInfrastructure I)
 	{

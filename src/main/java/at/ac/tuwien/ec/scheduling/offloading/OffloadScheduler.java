@@ -99,6 +99,12 @@ public abstract class OffloadScheduler extends SimIteration implements Serializa
 						
 	}
 
+    protected boolean hasEnoughBattery(OffloadScheduling deployment, MobileSoftwareComponent s, ComputationalNode n) {
+        double consOnMobile = n.getCPUEnergyModel().computeCPUEnergy(s, n, currentInfrastructure);
+        return ((MobileDevice)currentInfrastructure.getNodeById(s.getUserId())).getEnergyBudget() - consOnMobile >= 0;
+
+    }
+
 	/**
 	 * Adds task to the current deployment, updating its values and hardware availability
 	 * @param deployment the current OffloadScheduling
