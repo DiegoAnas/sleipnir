@@ -80,6 +80,7 @@ public class DeviceOnly extends OffloadScheduler {
                     System.out.println("Mobile energy budget does not allow execution on device");
                 }
             }
+            tasks.remove(currTask);
 			/*
 			 * if simulation considers mobility, perform post-scheduling operations
 			 * (default is to update coordinates of mobile devices)
