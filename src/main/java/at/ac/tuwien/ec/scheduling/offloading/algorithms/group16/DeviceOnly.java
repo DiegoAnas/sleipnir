@@ -60,7 +60,8 @@ public class DeviceOnly extends OffloadScheduler {
 		OffloadScheduling scheduling = new OffloadScheduling();
 		//We check until there are nodes available for scheduling
         HashSet<String> outOfBatteryDevices = new HashSet<>();
-		for (MobileSoftwareComponent currTask : tasks){
+        MobileSoftwareComponent currTask;
+        while((currTask = tasks.peek()) != null){
             ComputationalNode userDevice = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
             // deploy it in the mobile device (if enough resources are available)
             // Since capabilities and connectivity shouldn't be an issue, check only if energy budget allows it.
