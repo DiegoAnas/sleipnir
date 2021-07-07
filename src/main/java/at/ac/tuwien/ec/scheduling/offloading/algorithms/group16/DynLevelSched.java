@@ -68,7 +68,7 @@ public class DynLevelSched extends OffloadScheduler {
          * Tasks are selected according to their static b-level and EST (for DLS)
          */
         HashMap<String, MobileSoftwareComponent> readyTasks = new HashMap<>();
-        HashSet<MobileSoftwareComponent> scheduledTasks = new HashSet<>();
+        HashSet<String> scheduledTasks = new HashSet<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
         TopologicalOrderIterator taskIterator = new TopologicalOrderIterator(dag);
         System.out.println(" Initial number of tasks :"+dag.vertexSet().size());
@@ -86,6 +86,7 @@ public class DynLevelSched extends OffloadScheduler {
         ComputationalNode maxCN;
         Double maxDL;
         Double currDL = 0.0;
+        int readyLength = 0;
         System.out.println(" Initial number of ready tasks :"+readyTasks.size());
         while (!readyTasks.isEmpty()){
             maxTask =null;
@@ -115,24 +116,30 @@ public class DynLevelSched extends OffloadScheduler {
             } else {
                 deploy(scheduling, maxTask, maxCN);
                 for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
-                    if (!readyTasks.containsKey(task.getTarget().getId()))
+                    if (!readyTasks.containsKey(task.getTarget().getId())) {
                         readyTasks.put(task.getTarget().getId(), task.getTarget());
+                    }
                 }
+                readyLength = readyTasks.size();
                 readyTasks.remove(maxTask.getId());
-                if (scheduledTasks.contains(maxTask.getId()))
-                    System.out.println("Task duplicated :"+maxTask.getId());
-                else
-                    scheduledTasks.add(maxTask);
+                if (readyLength == readyTasks.size()) {
+                    System.out.println("Ready list not updated after deployment/removal");
+                }
+                if (scheduledTasks.contains(maxTask.getId())) {
+                    System.out.println("Task duplicated :" + maxTask.getId());
+                }else{
+                    scheduledTasks.add(maxTask.getId());
                     System.out.println("Task deployed :"+ maxTask.getId());
+                }
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
             }
             System.out.println("Tasks remaining in ready list :"+readyTasks.size());
-            auxSet.addAll(dag.vertexSet());
-            auxSet.removeAll(scheduledTasks);
-            int unscheduled = auxSet.size();
-            auxSet.clear();
-            System.out.println("Tasks unscheduled : "+unscheduled);
+            //auxSet.addAll(dag.vertexSet());
+            //auxSet.removeAll(scheduledTasks);
+            //int unscheduled = auxSet.size();
+            //auxSet.clear();
+            //System.out.println("Tasks unscheduled : "+unscheduled);
             /*
              * if simulation considers mobility, perform post-scheduling operations
              * (default is to update coordinates of mobile devices)
