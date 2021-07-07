@@ -20,8 +20,8 @@ import java.util.*;
 
 /**
  * OffloadScheduler class that implements the
- * Highest Level First with Estimated Times (HLFET) algorithm
- * , a simple scheduling heuristic with O(v^2) time-complexity
+ * Dynamic Level Scheduling algorithm algorithm
+ * , a simple scheduling heuristic with O(pv^3) time-complexity
  *
  * As described in:
  * Kwok, Y., & Ahmad, I. (1999).
@@ -92,6 +92,7 @@ public class DynLevelSched extends OffloadScheduler {
             maxTask =null;
             maxCN = null;
             maxDL = -Double.MAX_VALUE;
+
             for (MobileSoftwareComponent currTask : readyTasks.values()){
                 // look for the task-processor pair with the maximum Dynamic Level
                 if (currTask.isOffloadable()){
@@ -111,28 +112,23 @@ public class DynLevelSched extends OffloadScheduler {
                     maxCN = ((ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId()));
                 }
             }
-            if (maxTask== null){
-                System.out.print("Null task. Last DL calculate: "+ currDL);
-            } else {
-                deploy(scheduling, maxTask, maxCN);
-                for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
-                    if (!readyTasks.containsKey(task.getTarget().getId())) {
-                        readyTasks.put(task.getTarget().getId(), task.getTarget());
-                    }
+
+            deploy(scheduling, maxTask, maxCN);
+            taskCounter +=1;
+            System.out.println("Tasks deployed :"+taskCounter);
+            if (scheduledTasks.contains(maxTask.getId())) {
+                System.out.println("Task duplicated :" + maxTask.getId());
+            }else{
+                scheduledTasks.add(maxTask.getId());
+                System.out.println("Task deployed :"+ maxTask.getId());
+            }
+            for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
+                if (!readyTasks.containsKey(task.getTarget().getId()) && !scheduledTasks.contains(task.getTarget().getId())) {
+                    readyTasks.put(task.getTarget().getId(), task.getTarget());
                 }
-                readyLength = readyTasks.size();
-                readyTasks.remove(maxTask.getId());
-                if (readyLength == readyTasks.size()) {
-                    System.out.println("Ready list not updated after deployment/removal");
-                }
-                if (scheduledTasks.contains(maxTask.getId())) {
-                    System.out.println("Task duplicated :" + maxTask.getId());
-                }else{
-                    scheduledTasks.add(maxTask.getId());
-                    System.out.println("Task deployed :"+ maxTask.getId());
-                }
-                System.out.println("Tasks deployed :"+taskCounter);
-                taskCounter +=1;
+            }
+            if (readyTasks.remove(maxTask.getId())==null){
+                System.out.println("Ready list not updated after deployment/removal");
             }
             System.out.println("Tasks remaining in ready list :"+readyTasks.size());
             //auxSet.addAll(dag.vertexSet());
