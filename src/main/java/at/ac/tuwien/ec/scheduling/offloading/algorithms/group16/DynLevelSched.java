@@ -83,7 +83,7 @@ public class DynLevelSched extends OffloadScheduler {
         MobileSoftwareComponent maxTask;
         ComputationalNode maxCN;
         Double maxDL;
-        Double currDL;
+        Double currDL = 0.0;
 
         while (!readyTasks.isEmpty()){
             maxTask =null;
@@ -108,9 +108,14 @@ public class DynLevelSched extends OffloadScheduler {
                     maxCN = ((ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId()));
                 }
             }
-            deploy(scheduling, maxTask, maxCN);
-            readyTasks.remove(maxTask);
-            readyTasks.addAll(dag.getDescendants(maxTask));
+            if (maxTask== null){
+                System.out.print("Null task. Last DL calculate: "+ currDL);
+            } else {
+                deploy(scheduling, maxTask, maxCN);
+                readyTasks.remove(maxTask);
+                readyTasks.addAll(dag.getDescendants(maxTask));
+            }
+
         }
         /*
          * if simulation considers mobility, perform post-scheduling operations
