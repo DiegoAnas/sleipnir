@@ -66,6 +66,7 @@ public class DynLevelSched extends OffloadScheduler {
          * Tasks are selected according to their static b-level and EST (for DLS)
          */
         HashSet<MobileSoftwareComponent> readyTasks = new HashSet<>();
+        HashSet<MobileSoftwareComponent> scheduledTasks = new HashSet<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
         Iterator taskIterator = currentApp.getTaskDependencies().iterator();
         System.out.println(" Initial number of tasks :"+dag.vertexSet().size());
@@ -109,7 +110,8 @@ public class DynLevelSched extends OffloadScheduler {
             } else {
                 deploy(scheduling, maxTask, maxCN);
                 for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
-                    readyTasks.add(task.getTarget());
+                    if (!scheduledTasks.contains(task))
+                        readyTasks.add(task.getTarget());
                 }
                 readyTasks.remove(maxTask);
 
