@@ -88,7 +88,7 @@ public class DynLevelSched extends OffloadScheduler {
         while (!readyTasks.isEmpty()){
             maxTask =null;
             maxCN = null;
-            maxDL = Double.MIN_VALUE;
+            maxDL = -Double.MAX_VALUE;
             for (MobileSoftwareComponent currTask : readyTasks){
                 // look for the task-processor pair with the maximum Dynamic Level
                 if (currTask.isOffloadable()){
