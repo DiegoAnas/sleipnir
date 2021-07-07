@@ -67,7 +67,7 @@ public class DynLevelSched extends OffloadScheduler {
          * tasks contains tasks that have to be scheduled for execution.
          * Tasks are selected according to their static b-level and EST (for DLS)
          */
-        HashSet<MobileSoftwareComponent> readyTasks = new HashSet<>();
+        HashMap<String, MobileSoftwareComponent> readyTasks = new HashMap<>();
         HashSet<MobileSoftwareComponent> scheduledTasks = new HashSet<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
         TopologicalOrderIterator taskIterator = new TopologicalOrderIterator(dag);
@@ -76,7 +76,7 @@ public class DynLevelSched extends OffloadScheduler {
             // add the source nodes to the readyList
             MobileSoftwareComponent node =(MobileSoftwareComponent) taskIterator.next();
             if (dag.getAncestors(node).isEmpty()) //only add source nodes at first
-                readyTasks.add(node);
+                readyTasks.put(node.getId(), node);
             else
                 break; // since list is traversed topologically, once the first child is visited there are no more source nodes
         }
@@ -91,7 +91,7 @@ public class DynLevelSched extends OffloadScheduler {
             maxTask =null;
             maxCN = null;
             maxDL = -Double.MAX_VALUE;
-            for (MobileSoftwareComponent currTask : readyTasks){
+            for (MobileSoftwareComponent currTask : readyTasks.values()){
                 // look for the task-processor pair with the maximum Dynamic Level
                 if (currTask.isOffloadable()){
                     for(ComputationalNode cn : currentInfrastructure.getAllNodes()){
@@ -115,12 +115,13 @@ public class DynLevelSched extends OffloadScheduler {
             } else {
                 deploy(scheduling, maxTask, maxCN);
                 for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
-                    if (!scheduledTasks.contains(task))
-                        readyTasks.add(task.getTarget());
+                    readyTasks.put(task.getTarget().getId(), task.getTarget());
                 }
-                readyTasks.remove(maxTask);
-                if (scheduledTasks.contains(maxTask))
+                readyTasks.remove(maxTask.getId());
+                if (scheduledTasks.contains(maxTask.getId()))
                     System.out.println("Task duplicated :"+maxTask.getId());
+                else
+                    scheduledTasks.add(maxTask);
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
             }
@@ -130,13 +131,13 @@ public class DynLevelSched extends OffloadScheduler {
             int unscheduled = auxSet.size();
             auxSet.clear();
             System.out.println("Tasks unscheduled : "+unscheduled);
+            /*
+             * if simulation considers mobility, perform post-scheduling operations
+             * (default is to update coordinates of mobile devices)
+             */
+            if(OffloadingSetup.mobility)
+                postTaskScheduling(scheduling);
         }
-        /*
-         * if simulation considers mobility, perform post-scheduling operations
-         * (default is to update coordinates of mobile devices)
-         */
-        if(OffloadingSetup.mobility)
-            postTaskScheduling(scheduling);
 
         double end = System.nanoTime();
         scheduling.setExecutionTime(end-start);
