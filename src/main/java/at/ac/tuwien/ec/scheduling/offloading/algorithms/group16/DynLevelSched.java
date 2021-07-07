@@ -115,7 +115,8 @@ public class DynLevelSched extends OffloadScheduler {
             } else {
                 deploy(scheduling, maxTask, maxCN);
                 for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
-                    readyTasks.put(task.getTarget().getId(), task.getTarget());
+                    if (!readyTasks.containsKey(task.getTarget().getId()))
+                        readyTasks.put(task.getTarget().getId(), task.getTarget());
                 }
                 readyTasks.remove(maxTask.getId());
                 if (scheduledTasks.contains(maxTask.getId()))
