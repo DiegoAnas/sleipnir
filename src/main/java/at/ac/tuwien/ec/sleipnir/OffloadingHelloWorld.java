@@ -86,16 +86,25 @@ public class OffloadingHelloWorld {
 		//this method is used to define the output file name
 		String filename = setupOutputFileName(dateFormat, date, OffloadingSetup.algoName);
 		File outFile = new File(filename);
+        JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram = null;
 
-		JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram = runSparkSimulation(
-				jscontext, inputSamples, OffloadingSetup.algoName);
-
-		generateOutFile(outFile, histogram);
-
-		//We print the fist deployment appearing in the histogram
-		System.out.println(histogram.first());
-		jscontext.close();
-	}
+        if (OffloadingSetup.algoName.equals("COMPARISON")){
+            ArrayList<String> algorithms = new ArrayList<>(Arrays.asList("HEFT", "HLFET", "DEVICE"));
+            for (String algo : algorithms){
+                OffloadingSetup.algoName = algo;
+                histogram = runSparkSimulation(jscontext, inputSamples, OffloadingSetup.algoName);
+                generateOutFile(outFile, histogram);
+                //We print the fist deployment appearing in the histogram
+                System.out.println(histogram.first());
+            }
+        } else {
+            histogram = runSparkSimulation(jscontext, inputSamples, OffloadingSetup.algoName);
+            generateOutFile(outFile, histogram);
+            //We print the fist deployment appearing in the histogram
+            System.out.println(histogram.first());
+        }
+        jscontext.close();
+    }
 
 	private static void generateOutFile(File outFile, JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram){
         if(!outFile.exists())
