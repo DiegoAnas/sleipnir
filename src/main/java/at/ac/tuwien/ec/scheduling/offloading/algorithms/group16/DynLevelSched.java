@@ -14,10 +14,7 @@ import at.ac.tuwien.ec.sleipnir.OffloadingSetup;
 import org.jgrapht.graph.DirectedAcyclicGraph;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.PriorityQueue;
+import java.util.*;
 
 /**
  * OffloadScheduler class that implements the
@@ -68,19 +65,17 @@ public class DynLevelSched extends OffloadScheduler {
          * tasks contains tasks that have to be scheduled for execution.
          * Tasks are selected according to their static b-level and EST (for DLS)
          */
-        ArrayList<MobileSoftwareComponent> readyTasks = new ArrayList<>();
+        HashSet<MobileSoftwareComponent> readyTasks = new HashSet<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
         Iterator taskIterator = currentApp.getTaskDependencies().iterator();
         System.out.println(" Initial number of tasks :"+dag.vertexSet().size());
         while (taskIterator.hasNext()){
             // add the source nodes to the readyList
             MobileSoftwareComponent node =(MobileSoftwareComponent) taskIterator.next();
-            if (dag.getAncestors(node).isEmpty()){ //only add source nodes at first
+            if (dag.getAncestors(node).isEmpty()) //only add source nodes at first
                 readyTasks.add(node);
-            } else{
-                break; //since they are ordered topologically, once we find the first child node we are sure no more source nodes are left
-            }
         }
+        int taskCounter = 0;
         MobileSoftwareComponent maxTask;
         ComputationalNode maxCN;
         Double maxDL;
@@ -115,6 +110,9 @@ public class DynLevelSched extends OffloadScheduler {
                 deploy(scheduling, maxTask, maxCN);
                 readyTasks.remove(maxTask);
                 readyTasks.addAll(dag.getDescendants(maxTask));
+
+                System.out.println("Tasks deployed :"+taskCounter);
+                taskCounter +=1;
             }
             System.out.println("Tasks remaining :"+readyTasks.size());
         }
