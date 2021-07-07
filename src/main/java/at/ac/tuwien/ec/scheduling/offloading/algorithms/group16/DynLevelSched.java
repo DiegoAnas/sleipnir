@@ -123,6 +123,7 @@ public class DynLevelSched extends OffloadScheduler {
                     System.out.println("Task duplicated :"+maxTask.getId());
                 else
                     scheduledTasks.add(maxTask);
+                    System.out.println("Task deployed :"+ maxTask.getId());
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
             }
