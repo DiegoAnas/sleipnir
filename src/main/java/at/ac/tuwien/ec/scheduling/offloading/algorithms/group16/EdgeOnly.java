@@ -95,8 +95,12 @@ public class EdgeOnly extends OffloadScheduler {
                         }
                     }
                 }
-                if (!target.isCompatible(currTask)) {
-                    // if target does not have enough hardware resources, free some by undeploying the first task.
+                while (!target.isCompatible(currTask) && !target.getAllocatedTasks().isEmpty()) {
+                    /*
+                    We assume that all tasks can be run in every edge node, and that if there are no connectivity issues,
+                     we can, as we did previously, undeploy the previously allocated tasks to free resources and
+                     keep deploying tasks in that edge.
+                     */
                     target.undeploy(target.getAllocatedTasks().remove(0));
                 }
                 deploy(scheduling, currTask, target);

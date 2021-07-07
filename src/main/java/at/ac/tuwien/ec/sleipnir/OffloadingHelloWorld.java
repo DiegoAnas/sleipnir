@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.Iterator;
 
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.DeviceOnly;
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.DynLevelSched;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.EdgeOnly;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.group16.HLFET;
 import at.ac.tuwien.ec.sleipnir.utils.FrequencyComparator;
@@ -89,7 +90,7 @@ public class OffloadingHelloWorld {
         JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram = null;
 
         if (OffloadingSetup.algoName.equals("COMPARISON")){
-            ArrayList<String> algorithms = new ArrayList<>(Arrays.asList("HEFT", "HLFET", "EDGE", "DEVICE")); //TODO Add to list of algorithms as you implement them
+            ArrayList<String> algorithms = new ArrayList<>(Arrays.asList("HEFT", "HLFET", "DLS", "EDGE", "DEVICE")); //TODO Add to list of algorithms as you implement them
             for (String algo : algorithms){
                 OffloadingSetup.algoName = algo;
                 histogram = runSparkSimulation(jscontext, inputSamples, OffloadingSetup.algoName);
@@ -190,16 +191,17 @@ public class OffloadingHelloWorld {
                             case "DEVICE":
                                 singleSearch = new DeviceOnly(inputValues);
                                 break;
-                            //case "EDGE":
-                            //    singleSearch = new EdgeOnly(inputValues);
+                            case "EDGE":
+                                singleSearch = new EdgeOnly(inputValues);
+                                break;
+                            case "DLS":
+                                singleSearch = new DynLevelSched(inputValues);
+                                break;
                             default:
                                 singleSearch = new HEFTResearch(inputValues);
                                 break;
-                            // TODO add yours!
+                            //TODO Add algorithms as you implement them
                         }
-
-                        //ToDo: do comparisons here between algoritms so randomly generated workload can be shared among them
-
 
 						ArrayList<OffloadScheduling> offloads = (ArrayList<OffloadScheduling>) singleSearch.findScheduling();
 						if(offloads != null)
@@ -461,7 +463,7 @@ public class OffloadingHelloWorld {
             if(s.startsWith("-alg="))
             {
                 String[] tmp = s.split("=");
-                OffloadingSetup.algoName = tmp[1];
+                OffloadingSetup.algoName = tmp[1].toUpperCase();
                 continue;
             }
 						
@@ -486,8 +488,6 @@ public class OffloadingHelloWorld {
 				+ "Each workflows has n applications\n"
 				+ "-cloudonly\t"
 				+ "Simulation uses only Cloud nodes\n"
-                + "-edgeonly\t"
-                + "Simulation uses only Edge nodes\n"
 				+ "-area=name\t"
 				+ "Urban area where the offloading is performed (possible choices: HERNALS, LEOPOLDSTADT, SIMMERING)\n"
 				+ "-eta=n\t"
@@ -515,7 +515,7 @@ public class OffloadingHelloWorld {
 				+ "-facebookDistr=#\t"
 				+ "Probability of FACEBOOK app in workflow (must be between 0 and 1).\n"
                 + "-alg=#\t"
-                + "Algorithm for task scheduling ([HEFT,HLFET]).\n"
+                + "Algorithm for task scheduling ([HEFT,HLFET,DLS,EDGE,DEVICE]).\n"
 				+ "\n"
 				+ "");
 	}
