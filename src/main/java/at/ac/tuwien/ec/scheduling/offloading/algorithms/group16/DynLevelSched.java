@@ -108,8 +108,10 @@ public class DynLevelSched extends OffloadScheduler {
                 System.out.print("Null task. Last DL calculate: "+ currDL);
             } else {
                 deploy(scheduling, maxTask, maxCN);
+                for (ComponentLink task : dag.outgoingEdgesOf(maxTask)){
+                    readyTasks.add(task.getTarget());
+                }
                 readyTasks.remove(maxTask);
-                readyTasks.addAll(dag.getDescendants(maxTask));
 
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
