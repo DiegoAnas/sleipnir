@@ -81,7 +81,7 @@ public class DynLevelSched extends OffloadScheduler {
                 break; // since list is traversed topologically, once the first child is visited there are no more source nodes
         }
         int taskCounter = 0;
-        HashSet<MobileSoftwareComponent> auxSet;
+        HashSet<MobileSoftwareComponent> auxSet = new HashSet<>();
         MobileSoftwareComponent maxTask;
         ComputationalNode maxCN;
         Double maxDL;
@@ -125,10 +125,10 @@ public class DynLevelSched extends OffloadScheduler {
                 taskCounter +=1;
             }
             System.out.println("Tasks remaining in ready list :"+readyTasks.size());
-            auxSet = new HashSet<>();
             auxSet.addAll(dag.vertexSet());
             auxSet.removeAll(scheduledTasks);
             int unscheduled = auxSet.size();
+            auxSet.clear();
             System.out.println("Tasks unscheduled : "+unscheduled);
         }
         /*

@@ -100,5 +100,8 @@ public class MobileSoftwareComponent extends SoftwareComponent implements Serial
 
 	public void addInData(double inData) {
 		this.inData += inData;		
-	}	
+	}
+
+	@Override
+    public int hashCode(){ return this.getId().hashCode();}
 }
