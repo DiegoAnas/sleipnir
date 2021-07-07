@@ -11,7 +11,9 @@ import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduling;
 import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.utils.NodeRankComparator;
 import at.ac.tuwien.ec.scheduling.utils.RuntimeComparator;
 import at.ac.tuwien.ec.sleipnir.OffloadingSetup;
+import org.apache.commons.collections.SetUtils;
 import org.jgrapht.graph.DirectedAcyclicGraph;
+import org.jgrapht.traverse.TopologicalOrderIterator;
 import scala.Tuple2;
 
 import java.util.*;
@@ -68,15 +70,18 @@ public class DynLevelSched extends OffloadScheduler {
         HashSet<MobileSoftwareComponent> readyTasks = new HashSet<>();
         HashSet<MobileSoftwareComponent> scheduledTasks = new HashSet<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
-        Iterator taskIterator = currentApp.getTaskDependencies().iterator();
+        TopologicalOrderIterator taskIterator = new TopologicalOrderIterator(dag);
         System.out.println(" Initial number of tasks :"+dag.vertexSet().size());
         while (taskIterator.hasNext()){
             // add the source nodes to the readyList
             MobileSoftwareComponent node =(MobileSoftwareComponent) taskIterator.next();
             if (dag.getAncestors(node).isEmpty()) //only add source nodes at first
                 readyTasks.add(node);
+            else
+                break; // since list is traversed topologically, once the first child is visited there are no more source nodes
         }
         int taskCounter = 0;
+        HashSet<MobileSoftwareComponent> auxSet;
         MobileSoftwareComponent maxTask;
         ComputationalNode maxCN;
         Double maxDL;
@@ -118,7 +123,12 @@ public class DynLevelSched extends OffloadScheduler {
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
             }
-            System.out.println("Tasks remaining :"+readyTasks.size());
+            System.out.println("Tasks remaining in ready list :"+readyTasks.size());
+            auxSet = new HashSet<>();
+            auxSet.addAll(dag.vertexSet());
+            auxSet.removeAll(scheduledTasks);
+            int unscheduled = auxSet.size();
+            System.out.println("Tasks unscheduled : "+unscheduled);
         }
         /*
          * if simulation considers mobility, perform post-scheduling operations
