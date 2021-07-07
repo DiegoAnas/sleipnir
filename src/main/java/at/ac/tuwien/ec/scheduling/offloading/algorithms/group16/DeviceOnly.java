@@ -18,7 +18,7 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 
 /**
- * Dummy Scheduler that runs all nodes in the mobile device
+ * Dummy Scheduler that runs all nodes in the mobile device following topological order
  */
 
 public class DeviceOnly extends OffloadScheduler {

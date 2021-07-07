@@ -89,12 +89,13 @@ public class OffloadingHelloWorld {
         JavaPairRDD<OffloadScheduling, Tuple5<Integer, Double, Double, Double, Double>> histogram = null;
 
         if (OffloadingSetup.algoName.equals("COMPARISON")){
-            ArrayList<String> algorithms = new ArrayList<>(Arrays.asList("HEFT", "HLFET", "DEVICE"));
+            ArrayList<String> algorithms = new ArrayList<>(Arrays.asList("HEFT", "HLFET", "EDGE", "DEVICE")); //TODO Add to list of algorithms as you implement them
             for (String algo : algorithms){
                 OffloadingSetup.algoName = algo;
                 histogram = runSparkSimulation(jscontext, inputSamples, OffloadingSetup.algoName);
                 generateOutFile(outFile, histogram);
                 //We print the fist deployment appearing in the histogram
+                System.out.println("++++++++ Algorithm :"+algo+" ++++++++");
                 System.out.println(histogram.first());
             }
         } else {

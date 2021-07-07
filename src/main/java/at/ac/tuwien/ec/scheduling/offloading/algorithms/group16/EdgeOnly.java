@@ -3,19 +3,24 @@ package at.ac.tuwien.ec.scheduling.offloading.algorithms.group16;
 
 import at.ac.tuwien.ec.model.infrastructure.MobileCloudInfrastructure;
 import at.ac.tuwien.ec.model.infrastructure.computationalnodes.ComputationalNode;
+import at.ac.tuwien.ec.model.infrastructure.computationalnodes.MobileDevice;
 import at.ac.tuwien.ec.model.software.MobileApplication;
 import at.ac.tuwien.ec.model.software.MobileSoftwareComponent;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduler;
 import at.ac.tuwien.ec.scheduling.offloading.OffloadScheduling;
-import at.ac.tuwien.ec.scheduling.utils.RuntimeComparator;
+import at.ac.tuwien.ec.scheduling.offloading.algorithms.heftbased.utils.NodeRankComparator;
 import at.ac.tuwien.ec.sleipnir.OffloadingSetup;
+import org.jgrapht.traverse.TopologicalOrderIterator;
 import scala.Tuple2;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.PriorityQueue;
 
 /**
- * Dummy Scheduler that runs all nodes in the mobile device
+ * Dummy Scheduler that runs all Software components, following topological order,
+ * on the edge node that has the least transmission time
+ * (an attempt to emulate deploying the component to the closest edge node)
  */
 
 public class EdgeOnly extends OffloadScheduler {
@@ -26,66 +31,118 @@ public class EdgeOnly extends OffloadScheduler {
      * Constructors set the parameters and calls setBLevel() to nodes' ranks
      */
 
-	public EdgeOnly(MobileApplication A, MobileCloudInfrastructure I) {
-		super();
-		setMobileApplication(A);
-		setInfrastructure(I);
-	}
+    public EdgeOnly(MobileApplication A, MobileCloudInfrastructure I) {
+        super();
+        setMobileApplication(A);
+        setInfrastructure(I);
+        setRank(this.currentApp,this.currentInfrastructure);
+    }
 
-	public EdgeOnly(Tuple2<MobileApplication,MobileCloudInfrastructure> t) {
-		super();
-		setMobileApplication(t._1());
-		setInfrastructure(t._2());
-	}
+    public EdgeOnly(Tuple2<MobileApplication,MobileCloudInfrastructure> t) {
+        super();
+        setMobileApplication(t._1());
+        setInfrastructure(t._2());
+        setRank(this.currentApp,this.currentInfrastructure);
+    }
 
     /**
      * Processor selection phase:
      * select the mobile device
-     * @return
+     * @return a (list of) deployment of task components
      */
-	@Override
-	public ArrayList<? extends OffloadScheduling> findScheduling() {
-		double start = System.nanoTime();
-		/*scheduledNodes contains the nodes that have been scheduled for execution.
-		 * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
-		 */
-		PriorityQueue<MobileSoftwareComponent> scheduledNodes
-		= new PriorityQueue<MobileSoftwareComponent>(new RuntimeComparator());
-		/*
-		 * tasks contains tasks that have to be scheduled for execution.
-		 * Tasks are selected according to their staticBLevel (at least in HEFT)
-		 */
-		ArrayList<MobileSoftwareComponent> tasks = new ArrayList<>();
-		//To start, we add all nodes in the workflow
-		tasks.addAll(currentApp.getTaskDependencies().vertexSet());
-		ArrayList<OffloadScheduling> deployments = new ArrayList<OffloadScheduling>();
+    @Override
+    public ArrayList<? extends OffloadScheduling> findScheduling() {
+        double start = System.nanoTime();
+        /*scheduledNodes contains the nodes that have been scheduled for execution.
+         * Once nodes are scheduled, they are taken from the PriorityQueue according to their runtime
+         */
+        PriorityQueue<MobileSoftwareComponent> tasks = new PriorityQueue<MobileSoftwareComponent>(new NodeRankComparator());
+        tasks.addAll(currentApp.getTaskDependencies().vertexSet());
+        ArrayList<OffloadScheduling> deployments = new ArrayList<>();
+        //We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
+        OffloadScheduling scheduling = new OffloadScheduling();
+        //We check until there are nodes available for scheduling
+        HashSet<String> outOfBatteryDevices = new HashSet<>();
+        MobileSoftwareComponent currTask;
+        double minTransmission, transmission ;
+        ComputationalNode target;
+        ComputationalNode userDevice;
+        while((currTask = tasks.peek()) != null){
+            userDevice = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
+            if (currTask.isOffloadable()){
+                // if it's offloadable choose the "closest" edge node and deploy it there
+                minTransmission = Double.MAX_VALUE;
+                target = null;
+                for(ComputationalNode cn : currentInfrastructure.getEdgeNodes().values()) {
+                    if (isValid(scheduling, currTask, cn)) {
+                        transmission = currentInfrastructure.getTransmissionTime(currTask, userDevice, cn);
+                        if (transmission < minTransmission) {
+                            minTransmission = transmission;
+                            target = cn;
+                        }
+                    }
+                }
+                if (target == null){
+                    // Didn't find a valid edge node, due to connectivity or load
+                    // now find a edge only checking connectivity
+                    for(ComputationalNode cn : currentInfrastructure.getEdgeNodes().values()) {
+                        if (checkConnectivity(scheduling, currTask, cn)) {
+                            transmission = currentInfrastructure.getTransmissionTime(currTask, userDevice, cn);
+                            if (transmission < minTransmission) {
+                                minTransmission = transmission;
+                                target = cn;
+                            }
+                        }
+                    }
+                }
+                if (!target.isCompatible(currTask)) {
+                    // if target does not have enough hardware resources, free some by undeploying the first task.
+                    target.undeploy(target.getAllocatedTasks().remove(0));
+                }
+                deploy(scheduling, currTask, target);
+            } else {
+                // deploy it in the mobile device (if enough resources are available)
+                // Since capabilities and connectivity shouldn't be an issue, check only if energy budget allows it.
+                double consumption = userDevice.getCPUEnergyModel().computeCPUEnergy(currTask, userDevice, currentInfrastructure);
+                if (consumption < ((MobileDevice)userDevice).getEnergyBudget()) {
+                    if (userDevice.isCompatible(currTask)){
+                        deploy(scheduling, currTask, userDevice);
+                    } else {
+                        userDevice.undeploy(userDevice.getAllocatedTasks().get(0)); // get the first task deployed and undeploy it
+                        deploy(scheduling, currTask, userDevice);
+                    }
+                }else{
+                    if (!outOfBatteryDevices.contains(userDevice.getId())) { // show the energy message only once (per phone)
+                        outOfBatteryDevices.add(userDevice.getId());
+                        System.out.println("Mobile energy budget does not allow execution on device");
+                    }
+                }
+            }
+            tasks.remove(currTask);
+            /*
+             * if simulation considers mobility, perform post-scheduling operations
+             * (default is to update coordinates of mobile devices)
+             */
+            if(OffloadingSetup.mobility)
+                postTaskScheduling(scheduling);
+        }
+        double end = System.nanoTime();
+        scheduling.setExecutionTime(end-start);
+        deployments.add(scheduling);
+        return deployments;
+    }
 
-		//We initialize a new OffloadScheduling object, modelling the scheduling computer with this algorithm
-		OffloadScheduling scheduling = new OffloadScheduling(); 
-		//We check until there are nodes available for scheduling
-		for (MobileSoftwareComponent currTask : tasks)
-		{
-			ComputationalNode target = null;
-            // deploy it in the mobile device (if enough resources are available)
-            if(isValid(scheduling,currTask,(ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId())))
-                target = (ComputationalNode) currentInfrastructure.getNodeById(currTask.getUserId());
-			//if scheduling found a target node for the task, it allocates it to the target node
-			if(target != null) // what happens when mobile device is not valid?!
-			{
-				deploy(scheduling,currTask,target);
-				scheduledNodes.add(currTask);
-			}
-			/*
-			 * if simulation considers mobility, perform post-scheduling operations
-			 * (default is to update coordinates of mobile devices)
-			 */
-			if(OffloadingSetup.mobility)
-				postTaskScheduling(scheduling);					
-		}
-		double end = System.nanoTime();
-		scheduling.setExecutionTime(end-start);
-		deployments.add(scheduling);
-		return deployments;
-	}
-	
+    /**
+     * Set task nodes rank according to their topological order
+     * @param currentApp
+     * @param currentInfrastructure
+     */
+    private void setRank(MobileApplication currentApp, MobileCloudInfrastructure currentInfrastructure) {
+        TopologicalOrderIterator topoIterator = new TopologicalOrderIterator(currentApp.getTaskDependencies());
+        double order = currentApp.getTaskDependencies().vertexSet().size();
+        while (topoIterator.hasNext()){
+            ((MobileSoftwareComponent) topoIterator.next()).setRank(order);
+            order -=1;
+        }
+    }
 }

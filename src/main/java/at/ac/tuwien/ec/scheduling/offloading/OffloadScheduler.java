@@ -90,15 +90,29 @@ public abstract class OffloadScheduler extends SimIteration implements Serializa
 		double consOnMobile = (currentInfrastructure.getMobileDevices().containsKey(n.getId()))? 
 				n.getCPUEnergyModel().computeCPUEnergy(s, n, currentInfrastructure) :
 					currentInfrastructure.getNodeById(s.getUserId()).getNetEnergyModel().computeNETEnergy(s, n, currentInfrastructure);
-				boolean compatible = n.isCompatible(s); //checks if target node hardware capabilities match task requirements
-				boolean offloadPossible = isOffloadPossibleOn(s, n); //checks if there is connectivity between mobile device and target node
-				boolean consAcceptable = ((MobileDevice)currentInfrastructure
-						.getNodeById(s.getUserId())).getEnergyBudget() - consOnMobile >= 0; //checks if there is enough energy to execute/offload
-				boolean linksOk = checkLinks(deployment,s,n); //checks connectivity between nodes (i.e., if predecessor's target node can send its output to current target)
-				return compatible && offloadPossible && consAcceptable && linksOk;
-						
+        boolean compatible = n.isCompatible(s); //checks if target node hardware capabilities match task requirements
+        boolean offloadPossible = isOffloadPossibleOn(s, n); //checks if there is connectivity between mobile device and target node
+        boolean consAcceptable = ((MobileDevice)currentInfrastructure
+                .getNodeById(s.getUserId())).getEnergyBudget() - consOnMobile >= 0; //checks if there is enough energy to execute/offload
+        boolean linksOk = checkLinks(deployment,s,n); //checks connectivity between nodes (i.e., if predecessor's target node can send its output to current target)
+
+        return compatible && offloadPossible && consAcceptable && linksOk;
 	}
 
+    protected boolean checkConnectivity(OffloadScheduling deployment, MobileSoftwareComponent s, ComputationalNode n) {
+        boolean offloadPossible = isOffloadPossibleOn(s, n); //checks if there is connectivity between mobile device and target node
+        boolean linksOk = checkLinks(deployment,s,n); //checks connectivity between nodes (i.e., if predecessor's target node can send its output to current target)
+
+        return offloadPossible && linksOk;
+    }
+
+    /**
+     *
+     * @param deployment the scheduling
+     * @param s the app component
+     * @param n the hardware node, a mobile device
+     * @return true if the battery of the device is enough to run the component
+     */
     protected boolean hasEnoughBattery(OffloadScheduling deployment, MobileSoftwareComponent s, ComputationalNode n) {
         double consOnMobile = n.getCPUEnergyModel().computeCPUEnergy(s, n, currentInfrastructure);
         return ((MobileDevice)currentInfrastructure.getNodeById(s.getUserId())).getEnergyBudget() - consOnMobile >= 0;
