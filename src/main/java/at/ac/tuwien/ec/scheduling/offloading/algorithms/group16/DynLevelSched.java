@@ -71,6 +71,7 @@ public class DynLevelSched extends OffloadScheduler {
         ArrayList<MobileSoftwareComponent> readyTasks = new ArrayList<>();
         DirectedAcyclicGraph<MobileSoftwareComponent, ComponentLink> dag = currentApp.getTaskDependencies();
         Iterator taskIterator = currentApp.getTaskDependencies().iterator();
+        System.out.println(" Initial number of tasks :"+dag.vertexSet().size());
         while (taskIterator.hasNext()){
             // add the source nodes to the readyList
             MobileSoftwareComponent node =(MobileSoftwareComponent) taskIterator.next();
@@ -84,7 +85,7 @@ public class DynLevelSched extends OffloadScheduler {
         ComputationalNode maxCN;
         Double maxDL;
         Double currDL = 0.0;
-
+        System.out.println(" Initial number of ready tasks :"+readyTasks.size());
         while (!readyTasks.isEmpty()){
             maxTask =null;
             maxCN = null;
@@ -115,7 +116,7 @@ public class DynLevelSched extends OffloadScheduler {
                 readyTasks.remove(maxTask);
                 readyTasks.addAll(dag.getDescendants(maxTask));
             }
-
+            System.out.println("Tasks remaining :"+readyTasks.size());
         }
         /*
          * if simulation considers mobility, perform post-scheduling operations
