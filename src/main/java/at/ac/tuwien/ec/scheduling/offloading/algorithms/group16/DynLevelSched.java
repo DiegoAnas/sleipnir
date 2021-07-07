@@ -119,7 +119,8 @@ public class DynLevelSched extends OffloadScheduler {
                         readyTasks.add(task.getTarget());
                 }
                 readyTasks.remove(maxTask);
-
+                if (scheduledTasks.contains(maxTask))
+                    System.out.println("Task duplicated :"+maxTask.getId());
                 System.out.println("Tasks deployed :"+taskCounter);
                 taskCounter +=1;
             }
